@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Account Console | CloudLearn{% endblock %}
+{% block page_name %}User Account & Performance Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Profile Specific Styles */
+  .profile-header {
+    display: flex; align-items: center; gap: 32px; border: 1px solid var(--border);
+    padding: 32px; border-radius: 12px; margin-bottom: 32px;
+    background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(167,139,250,0.05));
+  }
+  .avatar-lg {
+    width: 80px; height: 80px; background: var(--accent); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800; color: #fff;
+  }
+  
+  .perf-grid { display: grid; grid-template-columns: 1fr 1.50fr; gap: 24px; }
+  
+  .radar-container {
+    height: 400px; width: 100%; position: relative;
+    padding: 24px; background: var(--sidebar); border-radius: 12px; border: 1px solid var(--border);
+  }
+  
+  .stat-card-mini {
+    background: var(--sidebar); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; text-align: center;
+  }
+  .scm-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .scm-val { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+  .skill-dist-bar {
+    height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px;
+    overflow: hidden; display: flex; margin: 24px 0;
+  }
+  .dist-segment { height: 100%; transition: 0.5s; }
+
+  .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .form-group label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+  .form-group input {
+    background: var(--sidebar); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; color: #fff; outline: none; transition: 0.2s;
+  }
+  .form-group input:focus { border-color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-header">
+  <div class="avatar-lg">{{ username[0]|upper }}</div>
+  <div>
+    <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 4px;">{{ username }}</h1>
+    <p style="color:var(--muted); font-size: 14px;">Enterprise Cloud Practitioner · Active User</p>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <span class="badge badge-blue">ap-south-1</span>
+      <span class="badge badge-success">MFA Enabled</span>
+    </div>
+  </div>
+  <div style="margin-left: auto; text-align: right;">
+    <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Cloud Member Since</div>
+    <div style="font-size: 14px; font-weight: 600;">March 2026</div>
+  </div>
+</div>
+
+<div class="perf-grid">
+  <!-- Left Side: Radar & Distribution -->
+  <div>
+    <div class="card">
+      <h3 class="section-head">Performance Radar</h3>
+      <div class="radar-container">
+        <canvas id="performanceRadar"></canvas>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3 class="section-head">Skill Level Distribution</h3>
+      {% set total = stats.skill_dist['Beginner'] + stats.skill_dist['Intermediate'] + stats.skill_dist['Advanced'] %}
+      {% set b_pct = (stats.skill_dist['Beginner'] / total * 100)|round if total > 0 else 0 %}
+      {% set i_pct = (stats.skill_dist['Intermediate'] / total * 100)|round if total > 0 else 0 %}
+      {% set a_pct = (stats.skill_dist['Advanced'] / total * 100)|round if total > 0 else 0 %}
+      
+      <div class="skill-dist-bar">
+        <div class="dist-segment" style="width:{{ b_pct }}%; background: var(--accent);" title="Beginner"></div>
+        <div class="dist-segment" style="width:{{ i_pct }}%; background: var(--warn);" title="Intermediate"></div>
+        <div class="dist-segment" style="width:{{ a_pct }}%; background: var(--success);" title="Advanced"></div>
+      </div>
+      
+      <div class="grid-3" style="text-align:center;">
+        <div>
+          <div style="font-size:11px; color:var(--muted);">Beginner</div>
+          <div style="font-weight:700; color:var(--accent);">{{ b_pct }}%</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--muted);">Intermediate</div>
+          <div style="font-weight:700; color:var(--warn);">{{ i_pct }}%</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--muted);">Advanced</div>
+          <div style="font-weight:700; color:var(--success);">{{ a_pct }}%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side: Stats & Security -->
+  <div style="display:flex; flex-direction:column; gap:24px;">
+    <div class="card">
+      <h3 class="section-head">Global Metrics</h3>
+      <div class="grid-2" style="margin-bottom: 24px;">
+        <div class="stat-card-mini">
+          <div class="scm-label">Best Score</div>
+          <div class="scm-val">{{ stats.best_score }}</div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="scm-label">Avg Efficiency</div>
+          <div class="scm-val" style="color:var(--success);">{{ stats.avg_score }}%</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="stat-card-mini">
+          <div class="scm-label">Total Sessions</div>
+          <div class="scm-val" style="color:var(--accent);">{{ stats.total_sessions }}</div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="scm-label">Avg Lab Cost</div>
+          <div class="scm-val">${{ stats.avg_cost }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-head">Identity & Security</h3>
+      {% if error %}<div style="padding:12px; background:rgba(239,68,68,0.1); border:1px solid var(--danger); border-radius:8px; color:var(--danger); font-size:13px; margin-bottom:16px;">{{ error }}</div>{% endif %}
+      {% if success %}<div style="padding:12px; background:rgba(16,185,129,0.1); border:1px solid var(--success); border-radius:8px; color:var(--success); font-size:13px; margin-bottom:16px;">Password updated successfully.</div>{% endif %}
+      
+      <form method="POST" action="/profile">
+        <div class="form-group">
+          <label>Current Credentials</label>
+          <input type="password" name="current_password" placeholder="Current Password" required>
+        </div>
+        <div class="form-group">
+          <label>New IAM Password</label>
+          <input type="password" name="new_password" placeholder="Min 4 characters" minlength="4" required>
+        </div>
+        <div class="form-group">
+          <label>Confirm Credentials</label>
+          <input type="password" name="confirm_password" placeholder="Repeat New Password" minlength="4" required>
+        </div>
+        <button type="submit" class="start-btn" style="margin-top:12px;">Sync Password to Cluster →</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const radarCtx = document.getElementById('performanceRadar').getContext('2d');
+  
+  // Logic to compute radar metrics from server-side history
+  const history = {{ history_json | safe }};
+  let avgS = 0, speedS = 0, attS = 0, costS = 0;
+  
+  if(history.length > 0) {
+    avgS = history.reduce((sum, r) => sum + r.score, 0) / history.length;
+    let avgT = history.reduce((sum, r) => sum + r.time_taken, 0) / history.length;
+    let avgA = history.reduce((sum, r) => sum + r.attempts, 0) / history.length;
+    let avgC = history.reduce((sum, r) => sum + r.cost, 0) / history.length;
+    
+    speedS = Math.max(0, 100 - (avgT / 120 * 100));
+    attS = Math.max(0, 100 - (avgA / 5 * 100));
+    costS = Math.max(0, 100 - (avgC / 1.0 * 100)); // Normalized to $1
+  }
+
+  new Chart(radarCtx, {
+    type: 'radar',
+    data: {
+      labels: ['Score Accuracy', 'Learning Speed', 'Precision (Attempts)', 'Cost Efficiency'],
+      datasets: [{
+        label: 'Current Performance',
+        data: [avgS, speedS, attS, costS],
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        borderColor: '#3b82f6',
+        borderWidth: 2,
+        pointBackgroundColor: '#3b82f6',
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        r: {
+          angleLines: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: 'rgba(255,255,255,0.1)' },
+          pointLabels: { color: '#64748b', font: { size: 10, weight: '700' } },
+          ticks: { display: false, max: 100, min: 0 }
+        }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+</script>
+{% endblock %}

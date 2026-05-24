@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+
+{% block title %}Billing Console | CloudLearn{% endblock %}
+{% block page_name %}Billing & Cost Management{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Billing Specific Styles */
+  .billing-hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 32px; }
+  .bill-stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; text-align: center; transition: 0.2s;
+  }
+  .bill-stat:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .bs-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+  .bs-val { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .bs-val.success { color: var(--success); }
+  .bs-val.accent { color: var(--accent); }
+
+  .price-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .price-card {
+    background: var(--sidebar); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; text-align: center;
+  }
+  .pc-icon { font-size: 20px; margin-bottom: 8px; }
+  .pc-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .pc-rate { font-size: 14px; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono'; }
+
+  .efficiency-meter {
+    height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;
+    overflow: hidden; margin: 16px 0;
+  }
+  .eff-fill { height: 100%; border-radius: 4px; transition: 1s ease-out; }
+  .eff-high { background: var(--success); }
+  .eff-mid { background: var(--warn); }
+  .eff-low { background: var(--danger); }
+
+  .bk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .bk-item { background: var(--sidebar); padding: 12px; border-radius: 6px; text-align: center; border: 1px solid var(--border); }
+  
+  .flag-item {
+    border-left: 3px solid var(--danger); background: rgba(239,68,68,0.02);
+    padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px;
+  }
+
+  .table-wrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+
+  .table-wrap table {
+    width: 100%; border-collapse: collapse; margin: 0;
+  }
+
+  .table-wrap table thead {
+    background: rgba(0, 212, 255, 0.08); border-bottom: 2px solid var(--border);
+  }
+
+  .table-wrap table th {
+    padding: 16px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--accent); border: none;
+  }
+
+  .table-wrap table td {
+    padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px;
+  }
+
+  .table-wrap table tbody tr:hover {
+    background: rgba(0, 212, 255, 0.03);
+  }
+
+  .table-wrap table tbody tr:last-child td {
+    border-bottom: 2px solid var(--border);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="billing-hero">
+  <div class="bill-stat">
+     <div class="bs-label">Total Consumption</div>
+     <div class="bs-val">${{ perf_summary.total_cost if perf_summary else '0.00' }}</div>
+  </div>
+  <div class="bill-stat">
+     <div class="bs-label">Active Services</div>
+     <div class="bs-val accent">{{ resources|length }}</div>
+  </div>
+  <div class="bill-stat">
+     <div class="bs-label">Avg Savings</div>
+     <div class="bs-val success">{{ perf_summary.avg_savings_pct if perf_summary else '0' }}%</div>
+  </div>
+  <div class="bill-stat">
+     <div class="bs-label">Optimization Tier</div>
+     <div class="bs-val" style="color:var(--purple);">{{ perf_summary.best_skill if perf_summary else 'Standard' }}</div>
+  </div>
+</div>
+
+<div class="grid-2" style="grid-template-columns: 1fr 1.5fr;">
+  <!-- Calculator -->
+  <div class="card">
+    <h3 class="section-head">Smart Resource-Based Cost Estimator</h3>
+    <form method="POST" action="/billing/calculate" id="smartCostForm">
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:700; color:var(--muted);">SERVICE</label>
+          <select name="service" id="serviceSelect" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" onchange="renderResourceFields(); updateLivePreview();" required>
+            <option value="">-- Select Service --</option>
+            {% for key, g in goals.items() %}
+            <option value="{{ key }}">{{ g.title }}</option>
+            {% endfor %}
+            <option value="machine_learning">Machine Learning</option>
+            <option value="cloud_monitoring">Cloud Monitoring</option>
+            <option value="loadbalancer">Load Balancer</option>
+            <option value="all_services">All Resources (Composite Billing)</option>
+          </select>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center; font-size:12px;"><input type="number" name="attempts" id="attempts" min="1" value="1" style="width:70px; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--sidebar); color:#fff;" onchange="updateLivePreview();" oninput="updateLivePreview();" /> <span style="color:var(--muted);">Attempts (multiplier & cost graph)</span></div>
+
+        <div id="liveCostPreview" style="border:1px solid var(--border); border-radius:8px; padding:12px; color:var(--muted); font-size:13px; margin-bottom:12px;">Live cost preview updates with input changes.</div>
+
+        <div id="resourceInputs"></div>
+
+        <button type="submit" class="start-btn">Estimate Smart Bill →</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Price Catalog -->
+  <div class="card">
+    <h3 class="section-head">Resource Pricing (On-Demand)</h3>
+    <div class="price-grid">
+      {% for key, res in resources.items() %}
+      <div class="price-card">
+        <div class="pc-icon">{{ res.icon }}</div>
+        <div class="pc-name">{{ res.name }}</div>
+        <div class="pc-rate">${{ res.base_cost_hr }}<span style="font-size:10px; color:var(--muted);">/hr</span></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% if billing_result %}
+<div style="margin-top: 32px;">
+  <div class="grid-2">
+    <!-- Final Bill Card -->
+    <div class="card" style="border-top: 4px solid var(--success);">
+      <h3 class="section-head">Calculated Smart Bill</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div style="font-size:48px; font-weight:800; color:var(--success); font-family:'JetBrains Mono';">${{ billing_result.final_cost }}</div>
+        <div style="text-align:right;">
+          <div style="font-size:12px; color:var(--muted);">BASE COST: ${{ billing_result.total_base_cost }}</div>
+          <div style="font-size:14px; font-weight:700; color:var(--accent);">SAVED: {{ billing_result.savings_pct }}%</div>
+        </div>
+      </div>
+      
+      <div style="margin-top:10px; font-size:13px; color:var(--muted);">
+        Cost Warning: <strong>{{ billing_result.cost_warning }}</strong><br>
+        Multiplier: <strong>{{ billing_result.multiplier if billing_result.multiplier else '1.0' }}x</strong><br>
+        Base cost: <strong>${{ billing_result.base_cost }}</strong>
+      </div>
+
+      <h4 style="font-size:12px; font-weight:700; color:var(--muted); margin-bottom:12px; text-transform:uppercase;">Resource Breakdown</h4>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        {% for res in billing_result.resources_used %}
+        <div class="flex-between" style="font-size:13px; padding:8px; background:rgba(255,255,255,0.02); border-radius:4px;">
+          <span>{{ res.name }}</span>
+          <span style="font-family:'JetBrains Mono'; color:var(--accent);">${{ res.session_cost }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if billing_result.optimization %}
+      <div style="margin-top:18px; padding:14px; border-radius:8px; border:1px solid var(--border); background: rgba(59,130,246,0.05);">
+        <div style="font-weight:700; font-size:13px; margin-bottom:8px;">Optimization Suggestions</div>
+        <ul style="margin:0; padding-left: 18px; color:var(--muted);">
+          {% for opt in billing_result.optimization %}
+          <li>{{ opt }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+    <h3 class="section-head">Attempt Cost Trend (1-6 attempts)</h3>
+    <div style="height:220px;">
+      <canvas id="attemptCostChart"></canvas>
+    </div>
+  </div>
+
+<!-- Billing History -->
+<div class="card" style="margin-top: 32px;">
+  <h3 class="section-head">Historical Cost Trends</h3>
+  <div style="height: 200px; margin-bottom: 32px;">
+     <canvas id="costTrendChart"></canvas>
+  </div>
+  
+  <h3 class="section-head">Billing Activity Log</h3>
+  {% if past_bills %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Task</th><th>Base</th><th>Efficiency</th><th>Final Bill</th><th>Status</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        {% for b in past_bills %}
+        <tr>
+          <td>{{ b.goal_title }}</td>
+          <td style="font-family:'JetBrains Mono'; color:var(--muted);">${{ b.base_cost }}</td>
+          <td>{{ b.efficiency_level }} ({{ b.efficiency_score }})</td>
+          <td style="color:var(--success); font-weight:700; font-family:'JetBrains Mono';">${{ b.final_cost }}</td>
+          <td><span class="badge badge-success">Paid</span></td>
+          <td style="color:var(--muted);">{{ b.created_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="text-align:center; padding:40px; color:var(--muted);">No billing records found.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function renderResourceFields() {
+    const service = document.getElementById('serviceSelect').value;
+    const container = document.getElementById('resourceInputs');
+    container.innerHTML = '';
+
+    if (service === 'ec2') {
+      container.innerHTML = `
+        <div class="grid-2">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted);">Instance Type</label>
+            <select name="instance_type" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+              <option value="t2.micro">t2.micro</option>
+              <option value="t2.small">t2.small</option>
+              <option value="t2.medium">t2.medium</option>
+              <option value="t3.large">t3.large</option>
+              <option value="m5.large">m5.large</option>
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted);">Usage Duration (hours)</label>
+            <input name="hours" type="number" min="0" step="0.1" value="1" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:700; color:var(--muted);">Storage (GB)</label>
+          <input name="storage_gb" type="number" min="0" step="0.1" value="10" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+        </div>
+      `;
+    } else if (service === 's3') {
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:700; color:var(--muted);">Storage Size (GB)</label>
+          <input name="storage_gb" type="number" min="0" step="0.1" value="100" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+        </div>
+      `;
+    } else if (service === 'machine_learning') {
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:700; color:var(--muted);">Model Size (GB)</label>
+          <input name="model_size_gb" type="number" min="0" step="0.1" value="5" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+        </div>
+        <div class="grid-2">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted);">Training Duration (hours)</label>
+            <input name="training_hours" type="number" min="0" step="0.1" value="4" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted);">Compute Intensity</label>
+            <select name="compute_intensity" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+      `;
+    } else if (service === 'cloud_monitoring') {
+      container.innerHTML = `
+        <div class="grid-2">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted);">Metric Count</label>
+            <input name="metrics" type="number" min="0" step="1" value="1000" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted);">Retention (days)</label>
+            <input name="retention_days" type="number" min="0" step="1" value="30" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;" required>
+          </div>
+        </div>
+      `;
+    } else if (service === 'all_services') {
+      container.innerHTML = `
+        <p style="color:var(--muted);">Provide values for the relevant subsystems and they will be aggregated.</p>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
+          <label><input type="checkbox" name="selected_services" value="ec2" checked> EC2</label>
+          <div style="margin-top:8px;">Instance type + hours + storage (same as EC2 form)</div>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
+          <label><input type="checkbox" name="selected_services" value="s3" checked> S3</label>
+          <div style="margin-top:8px;">Storage GB (same as S3 form)</div>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
+          <label><input type="checkbox" name="selected_services" value="machine_learning" checked> Machine Learning</label>
+          <div style="margin-top:8px;">Model size + training hours + intensity (same as ML form)</div>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:12px;">
+          <label><input type="checkbox" name="selected_services" value="cloud_monitoring" checked> Cloud Monitoring</label>
+          <div style="margin-top:8px;">Metrics + retention (same as CloudWatch form)</div>
+        </div>
+
+        <div style="margin-top:16px;">` +
+            // Inject existing Lambda snippet from each block to avoid duplication in this patch
+            `<!-- EC2 fields -->` +
+            `<div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;"><label style="font-size:11px; font-weight:700; color:var(--muted);">Instance Type (EC2)</label><select name="instance_type" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"><option value="t2.micro">t2.micro</option><option value="t2.small">t2.small</option><option value="t2.medium">t2.medium</option><option value="t3.large">t3.large</option><option value="m5.large">m5.large</option></select></div>` +
+            `<div style="margin-top:8px;"><label style="font-size:11px; font-weight:700; color:var(--muted);">EC2 Hours</label><input name="hours" type="number" min="0" step="0.1" value="1" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div>` +
+            `<div style="margin-top:8px;"><label style="font-size:11px; font-weight:700; color:var(--muted);">EC2 Storage (GB)</label><input name="storage_gb" type="number" min="0" step="0.1" value="10" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div>` +
+            `<div style="margin-top:12px;"><label style="font-size:11px; font-weight:700; color:var(--muted);">S3 Storage (GB)</label><input name="storage_gb" type="number" min="0" step="0.1" value="100" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div>` +
+            `<div style="margin-top:12px;"><label style="font-size:11px; font-weight:700; color:var(--muted);">ML Model Size (GB)</label><input name="model_size_gb" type="number" min="0" step="0.1" value="5" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div>` +
+            `<div style="margin-top:8px; display:flex; gap:8px;"><div style="flex:1;"><label style="font-size:11px; font-weight:700; color:var(--muted);">Training Duration</label><input name="training_hours" type="number" min="0" step="0.1" value="4" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div><div style="flex:1;"><label style="font-size:11px; font-weight:700; color:var(--muted);">Compute Intensity</label><select name="compute_intensity" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div></div>` +
+            `<div style="margin-top:12px; display:flex; gap:8px;"><div style="flex:1;"><label style="font-size:11px; font-weight:700; color:var(--muted);">Monitor Metrics</label><input name="metrics" type="number" min="0" step="1" value="1000" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div><div style="flex:1;"><label style="font-size:11px; font-weight:700; color:var(--muted);">Retention Days</label><input name="retention_days" type="number" min="0" step="1" value="30" style="background:var(--sidebar); border:1px solid var(--border); padding:12px; border-radius:8px; color:#fff;"></div></div>` +
+        `</div>`;
+    } else {
+      container.innerHTML = '<div style="color: var(--muted); font-size:13px;">Please select a service to configure resources.</div>';
+    }
+  }
+
+  function updateLivePreview() {
+    const service = document.querySelector('#serviceSelect').value;
+    const attempts = Number(document.querySelector('#attempts').value || 1);
+    if (!service) {
+      document.getElementById('liveCostPreview').innerText = 'Choose service and configure values to see cost preview.';
+      return;
+    }
+
+    let base = 0;
+    let multiplier = 1.0;
+    if (service === 'ec2') {
+      const hours = Number(document.querySelector('input[name="hours"]').value || 0);
+      const storage = Number(document.querySelector('input[name="storage_gb"]').value || 0);
+      base = (0.011 * hours) + (0.025 * storage);
+    } else if (service === 's3') {
+      const storage = Number(document.querySelector('input[name="storage_gb"]').value || 0);
+      base = 0.023 * storage;
+    } else if (service === 'machine_learning') {
+      const size = Number(document.querySelector('input[name="model_size_gb"]').value || 0);
+      const hours = Number(document.querySelector('input[name="training_hours"]').value || 0);
+      const intensity = document.querySelector('select[name="compute_intensity"]').value;
+      const rates = {low:5, medium:12, high:25};
+      base = (rates[intensity] || 12) * hours + (0.12 * size);
+    } else if (service === 'cloud_monitoring') {
+      const metrics = Number(document.querySelector('input[name="metrics"]').value || 0);
+      const retention = Number(document.querySelector('input[name="retention_days"]').value || 0);
+      base = 0.0002 * metrics + 0.005 * retention;
+    } else if (service === 'loadbalancer') {
+      const hours = Number(document.querySelector('input[name="hours"]').value || 0);
+      const processed = Number(document.querySelector('input[name="processed_gb"]').value || 0);
+      base = 0.08 * hours + 0.01 * processed;
+    } else if (service === 'all_services') {
+      // Approximate by all high-level fields together
+      base = 0;
+      const ec2h = Number(document.querySelector('input[name="hours"]').value || 0);
+      const ec2s = Number(document.querySelector('input[name="storage_gb"]').value || 0);
+      base += 0.011 * ec2h + 0.025 * ec2s;
+      const s3 = Number(document.querySelector('input[name="storage_gb"]').value || 0);
+      base += 0.023 * s3;
+      const mlh = Number(document.querySelector('input[name="training_hours"]').value || 0);
+      const mls = Number(document.querySelector('input[name="model_size_gb"]').value || 0);
+      const intensity = document.querySelector('select[name="compute_intensity"]').value || 'medium';
+      const rates = {low:5, medium:12, high:25};
+      base += (rates[intensity] || 12) * mlh + 0.12 * mls;
+      const metrics = Number(document.querySelector('input[name="metrics"]').value || 0);
+      const retention = Number(document.querySelector('input[name="retention_days"]').value || 0);
+      base += 0.0002 * metrics + 0.005 * retention;
+      const proc = Number(document.querySelector('input[name="processed_gb"]').value || 0);
+      base += 0.08 * ec2h + 0.01 * proc;
+    }
+
+    if (attempts === 1) multiplier = 1.0;
+    else if (attempts <= 3) multiplier = 1.2;
+    else if (attempts <= 5) multiplier = 1.5;
+    else multiplier = 2.0;
+
+    const final = (base * multiplier).toFixed(2);
+    const level = final <= 20 ? 'Low' : final <= 75 ? 'Moderate' : 'High';
+
+    document.getElementById('liveCostPreview').innerHTML =
+      `Estimated final cost: $${final} (base $${base.toFixed(2)} × ${multiplier}x) - Risk: ${level}`;
+  }
+
+  function renderAttemptChart() {
+    const graphId = 'attemptCostChart';
+    const graphElement = document.getElementById(graphId);
+    if (!graphElement) return;
+
+    const billingResult = {{ billing_result|default(None)|tojson | safe }};
+    
+    // Use actual data if available, or sample data for demonstration
+    let datapoints = [];
+    if (billingResult && billingResult.cost_graph && billingResult.cost_graph.length > 0) {
+      datapoints = billingResult.cost_graph;
+    }
+    
+    // Only render if we have real data
+    if (!datapoints || datapoints.length === 0) return;
+
+    // Destroy any existing chart on this canvas
+    const canvas = graphElement;
+    const existingChart = Chart.helpers?.getChart?.(canvas);
+    if (existingChart) existingChart.destroy();
+
+    const ctx2 = graphElement.getContext('2d');
+    if (!ctx2) return;
+    
+    new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: datapoints.map(p => `Attempt ${p.attempt}`),
+        datasets: [{
+          label: 'Estimated Cost',
+          data: datapoints.map(p => p.cost),
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#64748b' } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }
+        }
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    renderResourceFields();
+    updateLivePreview();
+    renderAttemptChart();
+
+    // Render Historical Cost Trends chart
+    const rawHistory = {{ (past_bills|tojson if past_bills else '[]') | safe }};
+    const history = rawHistory.slice().reverse();
+    const trend = document.getElementById('costTrendChart');
+    
+    if (trend && history && history.length > 0) {
+      // Destroy any existing chart
+      const existingChart = Chart.helpers?.getChart?.(trend);
+      if (existingChart) existingChart.destroy();
+      
+      const ctx = trend.getContext('2d');
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: history.map((h, i) => `Inv-${i + 1}`),
+            datasets: [{
+              label: 'Final Bill ($)',
+              data: history.map(h => h.final_cost),
+              backgroundColor: '#3b82f6',
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#64748b' } },
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }
+            }
+          }
+        });
+      }
+    }
+  });
+</script>
+{% endblock %}

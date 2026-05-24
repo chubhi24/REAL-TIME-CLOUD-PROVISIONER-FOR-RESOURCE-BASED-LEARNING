@@ -1,0 +1,753 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | CloudLearn Console{% endblock %}
+{% block page_name %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Dashboard Specific Styles */
+  .card-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--spacing-md);
+    font-family: 'Inter', sans-serif;
+  }
+
+  .card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    font-family: 'Poppins', sans-serif;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .card-trend {
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+  }
+
+  .trend-up { color: var(--success); }
+  .trend-down { color: var(--danger); }
+
+  .graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .graph-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .insight-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .insight-item {
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    border-left: 4px solid var(--accent-electric);
+    background: rgba(0, 212, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 212, 255, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .insight-item:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .insight-item.success {
+    border-left-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+    border-color: rgba(16, 185, 129, 0.1);
+  }
+
+  .insight-item.danger {
+    border-left-color: var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.1);
+  }
+
+  .insight-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .insight-text {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .progress-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .progress-box {
+    background: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-primary);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    transition: all 0.3s ease;
+  }
+
+  .progress-box:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-soft), var(--shadow-glow);
+  }
+
+  .p-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .p-bar-bg {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .p-bar-fill {
+    height: 100%;
+    background: var(--accent-gradient);
+    border-radius: 3px;
+    transition: width 0.8s ease;
+    position: relative;
+  }
+
+  .p-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .timeline-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-primary);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+  }
+
+  .timeline-item:hover {
+    transform: translateX(4px);
+    border-color: var(--accent-electric);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .t-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    margin-right: var(--spacing-md);
+    border: 1px solid var(--border-primary);
+    color: var(--accent-electric);
+    font-weight: 600;
+  }
+
+  .t-content {
+    flex: 1;
+  }
+
+  .t-score {
+    font-family: 'Inter', monospace;
+    font-weight: 700;
+    color: var(--accent-electric);
+    font-size: 0.875rem;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  }
+
+  /* Task Library Styles */
+  .task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+  }
+
+  .task-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .task-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent-gradient);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .task-card:hover::before {
+    opacity: 1;
+  }
+
+  .task-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-soft), var(--shadow-glow);
+    border-color: rgba(0, 212, 255, 0.3);
+  }
+
+  .task-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .task-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .task-meta {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+  }
+
+  .task-description {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .task-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .task-difficulty {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .difficulty-beginner {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+  }
+
+  .difficulty-intermediate {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+  }
+
+  .difficulty-advanced {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+
+  /* Filter Controls */
+  .filter-controls {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-primary);
+    background: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .filter-btn:hover,
+  .filter-btn.active {
+    border-color: var(--accent-electric);
+    color: var(--accent-electric);
+    background: rgba(0, 212, 255, 0.05);
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 250px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-primary);
+    background: var(--bg-glass);
+    backdrop-filter: blur(10px);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-electric);
+    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+  }
+
+  /* Chart Container */
+  .chart-container {
+    position: relative;
+    height: 400px;
+    margin: var(--spacing-lg) 0;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .task-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .filter-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .search-input {
+      min-width: auto;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Metrics Overview -->
+<div class="grid-4">
+  <div class="card">
+    <div class="card-label">Predicted Skill</div>
+    <div class="card-value">{{ perf_summary.best_skill }}</div>
+    <div class="card-trend trend-up">Current focus tier</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Sessions Completed</div>
+    <div class="card-value">{{ perf_summary.total_sessions }}</div>
+    <div class="card-trend {% if perf_summary.total_sessions >= 3 %}trend-up{% else %}trend-down{% endif %}">Keep learning streak up</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Resource Cost</div>
+    <div class="card-value">${{ perf_summary.total_cost }}</div>
+    <div class="card-trend trend-down">Total usage</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Avg Time</div>
+    <div class="card-value">{{ perf_summary.avg_time }}m</div>
+    <div class="card-trend {% if perf_summary.avg_time <= 30 %}trend-up{% else %}trend-down{% endif %}">
+      Target: 30m
+    </div>
+  </div>
+</div>
+
+<!-- Main Visuals -->
+<div class="grid-2" style="grid-template-columns: 2fr 1fr;">
+  <!-- Category Progress Graph -->
+  <div class="card">
+    <div class="graph-header">
+      <h3 class="graph-title">Category Progress</h3>
+      <div class="badge badge-blue">Live Skill Coverage</div>
+    </div>
+    <div id="categoryProgressContainer" style="height: 300px; position: relative;">
+      <canvas id="categoryProgressChart"></canvas>
+      <div id="categoryProgressNoData" style="display:none; height:100%; color: var(--muted); font-size: 14px; align-items: center; justify-content: center;">No progress data available</div>
+    </div>
+  </div>
+
+  <!-- AI Insights -->
+  <div class="card">
+    <h3 class="section-head">AI Session Insights</h3>
+    <div class="insight-card">
+       {% if session_insight %}
+       <div class="insight-item">
+         <div class="insight-title">Summary</div>
+         <div class="insight-text">{{ session_insight.summary | safe | striptags }}</div>
+       </div>
+       <div class="insight-item success">
+         <div class="insight-title">Key Strength</div>
+         <div class="insight-text">{{ session_insight.strength }}</div>
+       </div>
+       <div class="insight-item danger">
+         <div class="insight-title">Improvement Area</div>
+         <div class="insight-text">{{ session_insight.weakness }}</div>
+       </div>
+       {% else %}
+       <div class="insight-text" style="color:var(--muted)">Run a session to generate insights.</div>
+       {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Task Library and Guided Path -->
+<div class="card" style="margin: 24px 0; padding: 20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <h3 style="margin:0;">Task Library</h3>
+    <div style="display:flex; gap: 10px; align-items:center;">
+      <select id="filterCategory" onchange="renderTaskLibrary()" style="background: var(--sidebar); color: #fff; border:1px solid var(--border); padding:8px; border-radius:6px;">
+        <option value="">All Categories</option>
+      </select>
+      <select id="filterLevel" onchange="renderTaskLibrary()" style="background: var(--sidebar); color: #fff; border:1px solid var(--border); padding:8px; border-radius:6px;">
+        <option value="">All Levels</option>
+        <option value="Beginner">Beginner</option>
+        <option value="Intermediate">Intermediate</option>
+        <option value="Advanced">Advanced</option>
+      </select>
+      <select id="guidedLevel" onchange="applyGuidedMode()" style="background: var(--sidebar); color: #fff; border:1px solid var(--border); padding:8px; border-radius:6px;">
+        <option value="">Guided Mode</option>
+        <option value="Beginner">Beginner</option>
+        <option value="Intermediate">Intermediate</option>
+        <option value="Advanced">Advanced</option>
+      </select>
+    </div>
+  </div>
+
+  <div style="display:flex; gap: 20px;">
+    <div style="width: 240px; border-right: 1px solid var(--border); padding-right: 16px;">
+      <h4 style="margin-bottom: 10px;">Categories</h4>
+      <div id="categorySidebar"></div>
+
+      <h4 style="margin-top: 20px; margin-bottom: 10px;">Progress Summary</h4>
+      <div style="font-size:14px; margin-bottom:8px;">Total Progress: {{ task_progress.percent }}%</div>
+      {% for cat, pr in task_progress.category_progress.items() %}
+      <div style="font-size:13px; margin-bottom:4px;">{{ cat }}: {{ pr.completed }}/{{ pr.total }}</div>
+      {% endfor %}
+    </div>
+
+    <div style="flex:1; display:flex; flex-direction:column; gap: 14px;">
+      <div id="taskCards" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;"></div>
+      <div id="taskDetail" style="padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress and Activity -->
+<div class="grid-2">
+  <!-- Goal Mastery -->
+  <div class="card">
+    <h3 class="section-head">Resource Mastery Progress</h3>
+    <div class="progress-grid">
+      {% for key, goal in goal_progress.items() %}
+      <div class="progress-box">
+        <div class="p-info">
+          <span>{{ goal.title }}</span>
+          <span>{{ goal.pct }}%</span>
+        </div>
+        <div class="p-bar-bg">
+          <div class="p-bar-fill" style="width: {{ goal.pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Activity Timeline removed - replaced by session-based performance graph -->
+</div>
+
+<!-- Recommendation and Benchmark -->
+<div class="grid-2">
+   <div class="card" style="border-left: 4px solid var(--accent); margin-bottom: 0;">
+      <div class="card-label">Cloud Compass Recommendation</div>
+      <h3 style="margin-bottom: 8px;">{{ recommendation.topic }}</h3>
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">{{ recommendation.reason }}</p>
+      <a href="/learn" style="color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600;">Launch Lab Service →</a>
+   </div>
+   <div class="card" style="border-left: 4px solid var(--success); margin-bottom: 0;">
+      <div class="card-label">Global Benchmark Status</div>
+      <h3 style="margin-bottom: 8px;">{{ comparison.status }}</h3>
+      <p style="font-size: 13px; color: var(--muted);">
+          Performance is <strong style="color: var(--success)">{{ comparison.score_diff }}%</strong> above platform average.
+      </p>
+   </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const taskLibrary = {{ task_library | tojson | safe }};
+
+  function formatCost(value) {
+    return `$${value.toFixed(2)}`;
+  }
+
+  function populateCategories() {
+    const categories = [...new Set(taskLibrary.map(t => t.category))];
+    const sidebar = document.getElementById('categorySidebar');
+    const selectCat = document.getElementById('filterCategory');
+    sidebar.innerHTML = '';
+    selectCat.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(cat => {
+      selectCat.insertAdjacentHTML('beforeend', `<option value="${cat}">${cat}</option>`);
+      const btn = document.createElement('button');
+      btn.textContent = cat;
+      btn.style.cssText = 'width:100%; margin-bottom:6px; padding:8px; background:var(--sidebar); border:1px solid var(--border); color:#fff; border-radius:4px; cursor:pointer;';
+      btn.onclick = () => { selectCat.value = cat; renderTaskLibrary(); };
+      sidebar.appendChild(btn);
+    });
+  }
+
+  function renderTaskLibrary() {
+    const category = document.getElementById('filterCategory').value;
+    const level = document.getElementById('filterLevel').value;
+    const filtered = taskLibrary.filter(t => {
+      return (!category || t.category === category) && (!level || t.level === level);
+    });
+
+    const container = document.getElementById('taskCards');
+    container.innerHTML = '';
+    if (!filtered.length) {
+      container.innerHTML = '<div style="color:var(--muted);">No tasks match selected filters.</div>';
+      return;
+    }
+
+    filtered.forEach(task => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--bg-glass); border:1px solid var(--border-primary); border-radius:12px; padding:16px; box-shadow:0 8px 24px rgba(0,0,0,0.25);';
+      card.innerHTML = `
+        <h4 style="margin:0 0 10px; color:var(--text-primary);">${task.name}</h4>
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">${task.category} • ${task.level}</div>
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">${task.description}</p>
+        <div style="font-size:13px; margin-bottom:10px;">Estimated cost: <strong>${formatCost(task.estimated_cost)}</strong></div>
+        <div style="display:flex; gap:8px;">
+          <button onclick="showTaskDetail('${task.id}')" style="flex:1; padding:9px; border-radius:8px; border:1px solid var(--accent-electric); background:var(--accent-electric); color:#fff;">Details</button>
+          <button onclick="startTask('${task.id}')" style="flex:1; padding:9px; border-radius:8px; border:1px solid var(--border-primary); background:transparent; color:#fff;">Start Task</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function showTaskDetail(taskId) {
+    const task = taskLibrary.find(t => t.id === taskId);
+    if (!task) return;
+    const detail = document.getElementById('taskDetail');
+    detail.innerHTML = `
+      <h3 style="margin-top:0;">${task.name}</h3>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">${task.category} • ${task.level}</div>
+      <p style="font-size:13px; color:var(--text);">${task.description}</p>
+      <h5 style="margin:10px 0 4px;">Required resources</h5>
+      <ul style="padding-left:16px; font-size:13px; color:var(--text);">${Object.entries(task.required_resources).map(([k,v]) => `<li>${k}: ${v}</li>`).join('')}</ul>
+      <p style="margin:10px 0; font-weight:700;">Estimated cost: ${formatCost(task.estimated_cost)}</p>
+      <button onclick="startTask('${task.id}')" style="padding:10px 14px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff;">Start Task</button>
+      <button onclick="completeTask('${task.id}')" style="margin-left:8px; padding:10px 14px; border-radius:6px; border:1px solid var(--border); background:transparent; color:#fff;">Complete Task</button>
+    `;
+  }
+
+  function mapCategoryToLearningGoal(category) {
+    const map = {
+      'Compute': 'ec2',
+      'Storage': 's3',
+      'Monitoring': 'cloudwatch',
+      'DevOps': 'webapp',
+      'Machine Learning': 'serverless'
+    };
+    return map[category] || 'ec2';
+  }
+
+  async function startTask(taskId) {
+    const task = taskLibrary.find(t => t.id === taskId);
+    if (!task) return;
+
+    // mark task as started in progress tracking
+    const resp = await fetch('/api/tasklibrary/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({task_id: taskId})
+    });
+    const data = await resp.json();
+    if (!data.success) {
+      alert('Unable to start task.');
+      return;
+    }
+
+    // Redirect to the learning module for the associated goal
+    const goalKey = mapCategoryToLearningGoal(task.category);
+    window.location.href = `/learn/start?goal=${goalKey}&task_id=${taskId}`;
+  }
+
+  async function completeTask(taskId) {
+    const resp = await fetch('/api/tasklibrary/complete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({task_id: taskId})
+    });
+    const data = await resp.json();
+    if (data.success) {
+      renderTaskLibrary();
+      loadProgress();
+      renderCategoryProgressChart();
+      const next = data.next_task;
+      document.getElementById('taskDetail').innerHTML += `<p style="margin-top:10px; color:var(--muted);">Recommended next task: ${next ? next.name : 'All done'}</p>`;
+    }
+  }
+
+  async function loadProgress() {
+    const resp = await fetch('/api/performance_summary');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const card = document.querySelector('.grid-4 .card:nth-child(2) .card-value');
+    if (card) card.textContent = `${data.total_sessions}`;
+  }
+
+  function applyGuidedMode() {
+    const level = document.getElementById('guidedLevel').value;
+    document.getElementById('filterLevel').value = level;
+    renderTaskLibrary();
+  }
+
+  function renderCategoryProgressChart() {
+    const chartElement = document.getElementById('categoryProgressChart');
+    const noDataElement = document.getElementById('categoryProgressNoData');
+    if (!chartElement || !noDataElement) return;
+
+    fetch('/api/tasklibrary/progress')
+      .then(resp => resp.ok ? resp.json() : Promise.reject('Fetch error'))
+      .then(progress => {
+        const source = progress.category_progress || {};
+
+        const categories = [
+          'Compute', 'Storage', 'Machine Learning', 'DevOps', 'Monitoring'
+        ];
+
+        const values = categories.map(name => {
+          const stat = source[name] || {total: 0, completed: 0};
+          return stat.total > 0
+            ? Math.round((stat.completed / stat.total) * 100)
+            : 0;
+        });
+
+        const hasTotalTasks = categories.some(name => {
+          const stat = source[name] || {total: 0};
+          return stat.total > 0;
+        });
+
+        if (!hasTotalTasks) {
+          chartElement.style.display = 'none';
+          noDataElement.style.display = 'flex';
+          return;
+        }
+
+        chartElement.style.display = 'block';
+        noDataElement.style.display = 'none';
+
+        const existingChart = Chart.helpers?.getChart?.(chartElement);
+        if (existingChart) existingChart.destroy();
+
+        const ctx = chartElement.getContext('2d');
+        if (!ctx) return;
+
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: categories,
+            datasets: [{
+              label: 'Progress (%)',
+              data: values,
+              backgroundColor: 'rgba(37, 99, 235, 0.7)',
+              borderColor: 'rgba(37, 99, 235, 1)',
+              borderWidth: 1,
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              title: { display: true, text: 'Category Progress', color: '#e2e8f0', font: { size: 16 } },
+              tooltip: { callbacks: { label: ctx => `${ctx.parsed.y}%` } },
+              legend: { display: false }
+            },
+            scales: {
+              x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+              y: { min: 0, max: 100, ticks: { color: '#94a3b8', callback: value => `${value}%` }, grid: { color: 'rgba(148, 163, 184, 0.25)' } }
+            }
+          }
+        });
+      })
+      .catch(() => {
+        chartElement.style.display = 'none';
+        noDataElement.style.display = 'flex';
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    populateCategories();
+    renderTaskLibrary();
+    loadProgress();
+    renderCategoryProgressChart();
+  });
+
+</script>
+{% endblock %}

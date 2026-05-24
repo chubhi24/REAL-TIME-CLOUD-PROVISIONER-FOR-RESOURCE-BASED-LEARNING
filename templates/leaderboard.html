@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard | CloudLearn{% endblock %}
+{% block page_name %}Global Learning Leaderboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Leaderboard Specific Styles */
+  .top-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 48px; align-items: flex-end; }
+  .podium-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 32px 24px; text-align: center; position: relative;
+    transition: 0.3s;
+  }
+  .podium-card.first { height: 220px; border-color: #fbbf24; background: linear-gradient(180deg, rgba(251,191,36,0.1), transparent); }
+  .podium-card.second { height: 180px; border-color: #94a3b8; }
+  .podium-card.third { height: 160px; border-color: #cd7c3b; }
+  
+  .podium-rank {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+    font-weight: 800; border: 2px solid inherit;
+  }
+  .podium-name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .podium-score { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono'; margin-bottom: 4px; }
+  
+  .ranking-table {
+    width: 100%; border-collapse: collapse; margin-top: 24px;
+  }
+  .ranking-table th { text-align: left; padding: 16px; font-size: 11px; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .ranking-table td { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.02); vertical-align: middle; }
+  
+  .rank-num { font-family: 'JetBrains Mono'; font-weight: 700; color: var(--muted); width: 40px; }
+  .user-cell { display: flex; align-items: center; gap: 12px; }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  
+  .comparison-wrap { height: 300px; margin-top: 32px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="text-align: center; margin-bottom: 48px;">
+  <h1 style="font-size: 32px; font-weight: 800; margin-bottom: 8px;">Cloud Titan Leaderboard</h1>
+  <p style="color:var(--muted); font-size: 15px;">Global rankings based on AI efficiency and performance scores.</p>
+</div>
+
+{% if board and board|length >= 3 %}
+<div class="top-three">
+  <!-- Second Place -->
+  <div class="podium-card second">
+    <div class="podium-rank" style="border-color: #94a3b8; color: #94a3b8;">2</div>
+    <div class="podium-name">{{ board[1].username }}</div>
+    <div class="podium-score">{{ "%.1f"|format(board[1].avg_score) }}</div>
+    <div style="font-size: 12px; color: var(--muted);">AVG SCORE</div>
+  </div>
+  
+  <!-- First Place -->
+  <div class="podium-card first">
+    <div class="podium-rank" style="border-color: #fbbf24; color: #fbbf24;">1</div>
+    <div style="font-size: 32px; margin-bottom: 12px;">👑</div>
+    <div class="podium-name">{{ board[0].username }}</div>
+    <div class="podium-score" style="color: #fbbf24;">{{ "%.1f"|format(board[0].avg_score) }}</div>
+    <div style="font-size: 13px; color: var(--muted); font-weight: 700;">CLOUD TITAN</div>
+  </div>
+  
+  <!-- Third Place -->
+  <div class="podium-card third">
+    <div class="podium-rank" style="border-color: #cd7c3b; color: #cd7c3b;">3</div>
+    <div class="podium-name">{{ board[2].username }}</div>
+    <div class="podium-score">{{ "%.1f"|format(board[2].avg_score) }}</div>
+    <div style="font-size: 12px; color: var(--muted);">AVG SCORE</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3 class="section-head">Global Rankings</h3>
+  <table class="ranking-table">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Practitioner</th>
+        <th>Labs</th>
+        <th>Avg Score</th>
+        <th>Peak Performance</th>
+        <th>Consumed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in board %}
+      <tr {% if p.username == username %}style="background: rgba(59,130,246,0.05);"{% endif %}>
+        <td class="rank-num">#{{ loop.index }}</td>
+        <td>
+          <div class="user-cell">
+            <div class="user-avatar" style="background: {% if loop.index == 1 %}#fbbf24{% elif loop.index == 2 %}#94a3b8{% elif loop.index == 3 %}#cd7c3b{% else %}var(--accent){% endif %}">
+              {{ p.username[0]|upper }}
+            </div>
+            <div>
+              <div style="font-weight:700;">{{ p.username }} {% if p.username == username %}<span class="badge badge-blue" style="font-size:9px; vertical-align:middle;">YOU</span>{% endif %}</div>
+              <div style="font-size:11px; color:var(--muted);">Cloud Practitioner</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-family:'JetBrains Mono';">{{ p.total_sessions }}</td>
+        <td>
+          <div style="font-weight:800; color: {% if p.avg_score >= 80 %}var(--success){% elif p.avg_score >= 60 %}var(--warn){% else %}var(--accent){% endif %};">
+            {{ "%.1f"|format(p.avg_score) }}
+          </div>
+        </td>
+        <td style="font-family:'JetBrains Mono';">{{ p.best_score }}</td>
+        <td style="font-family:'JetBrains Mono'; color:var(--success); font-weight:700;">${{ "%.4f"|format(p.total_cost) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% set top_scorer = board[0] if board else None %}
+{% set me_stats = None %}
+{% for p in board %}
+  {% if p.username == username %}
+    {% set me_stats = p %}
+  {% endif %}
+{% endfor %}
+
+{% if top_scorer and me_stats %}
+<div class="card" style="margin-top: 32px;">
+  <h3 class="section-head">Practitioner Comparison: {{ username }} vs {{ top_scorer.username }}</h3>
+  <div class="comparison-wrap">
+    <canvas id="compChart"></canvas>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if top_scorer and me_stats %}
+<script>
+  const ctx = document.getElementById('compChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Avg Score', 'Best Score', 'Labs Completed (x10)'],
+      datasets: [
+        {
+          label: '{{ top_scorer.username }} (Top)',
+          data: [{{ top_scorer.avg_score }}, {{ top_scorer.best_score }}, {{ top_scorer.total_sessions * 10 }}],
+          backgroundColor: 'rgba(251, 191, 36, 0.6)',
+          borderRadius: 4
+        },
+        {
+          label: '{{ username }} (You)',
+          data: [{{ me_stats.avg_score }}, {{ me_stats.best_score }}, {{ me_stats.total_sessions * 10 }}],
+          backgroundColor: 'rgba(59, 130, 246, 0.6)',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#64748b' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' }, max: 100 }
+      },
+      plugins: { legend: { labels: { color: '#64748b', font: { weight: '700' } } } }
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}
